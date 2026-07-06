@@ -1,3 +1,7 @@
+VYRO STORE V3.0.1 ADMIN FIX
+
+Đã sửa lỗi không mở được Operation Center khi bấm logo VYRO 6 lần. Nguyên nhân: trùng tên id='opsLogin' với function opsLogin().
+
 VYRO STORE V3 DIGITAL DOWNLOAD CORE
 
 Có thể cho anh em chạy thử:
