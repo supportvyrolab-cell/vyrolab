@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VYRO STORE V1 | Account + Affiliate</title>
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+  <header class="top">
+    <div class="brand" id="logoTap">
+      <span>V</span>
+      <div><b>VYRO STORE</b><small>Bot MT5 • Indicator • Academy • Affiliate</small></div>
+    </div>
+    <nav>
+      <a href="#products">Sản phẩm</a>
+      <a href="#affiliate">Affiliate</a>
+      <a href="#dashboard">Dashboard</a>
+      <button onclick="openAuth()">Đăng nhập</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="tag">VYRO STORE V1 STABLE CORE</p>
+        <h1>Nền tảng bán sản phẩm số & phát triển Affiliate</h1>
+        <p class="lead">Tạo tài khoản, link giới thiệu, hoa hồng, ví rút tiền và admin ẩn bấm logo 6 lần.</p>
+        <div class="actions">
+          <button class="gold" onclick="openAuth()">Tạo tài khoản</button>
+          <button onclick="scrollToId('products')">Xem sản phẩm</button>
+        </div>
+      </div>
+      <div class="hero-card">
+        <h3>Luồng hệ thống V1</h3>
+        <p>Đăng ký → nhận link affiliate → giới thiệu khách mua → cộng hoa hồng pending → admin duyệt → rút tiền.</p>
+        <div class="flow"><span>Account</span><span>Affiliate</span><span>Commission</span><span>Withdraw</span></div>
+      </div>
+    </section>
+
+    <section class="stats" id="affiliate">
+      <div><b>Account</b><span>Đăng ký / đăng nhập</span></div>
+      <div><b>Ref Link</b><span>Link giới thiệu riêng</span></div>
+      <div><b>Wallet</b><span>Pending / Approved</span></div>
+      <div><b>Admin</b><span>Bấm logo 6 lần</span></div>
+    </section>
+
+    <section class="section" id="products">
+      <div class="title"><h2>Sản phẩm số VYRO</h2><p>Bot MT5, chỉ báo, khóa học và tín hiệu.</p></div>
+      <div class="grid" id="productGrid"></div>
+    </section>
+
+    <section class="section dashboard" id="dashboard">
+      <div class="title"><h2>Dashboard tài khoản / đại lý</h2><p>Tạo tài khoản để lấy link affiliate và xem hoa hồng.</p></div>
+      <div id="dashBox" class="panel"></div>
+    </section>
+
+    <section class="section admin hidden" id="adminPanel">
+      <div class="title"><h2>Admin VYRO</h2><p>Quản lý sản phẩm, đơn hàng, hoa hồng và rút tiền.</p></div>
+      <div id="adminBox" class="panel"></div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="authModal">
+    <div class="modal-card">
+      <button class="close" onclick="closeAuth()">×</button>
+      <h2>Tài khoản VYRO</h2>
+      <div class="tabs">
+        <button onclick="setTab('login')">Đăng nhập</button>
+        <button onclick="setTab('register')">Đăng ký</button>
+      </div>
+      <div id="loginForm">
+        <input id="loginEmail" placeholder="Email"/>
+        <input id="loginPass" type="password" placeholder="Mật khẩu"/>
+        <button class="gold full" onclick="login()">Đăng nhập</button>
+      </div>
+      <div id="registerForm" class="hidden">
+        <input id="regName" placeholder="Tên của anh/em"/>
+        <input id="regEmail" placeholder="Email"/>
+        <input id="regPass" type="password" placeholder="Mật khẩu"/>
+        <input id="regRef" placeholder="Mã giới thiệu nếu có"/>
+        <button class="gold full" onclick="register()">Tạo tài khoản</button>
+      </div>
+      <p class="msg" id="authMsg"></p>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="adminLogin">
+    <div class="modal-card">
+      <button class="close" onclick="closeAdminLogin()">×</button>
+      <h2>Admin ẩn VYRO</h2>
+      <p>Nhập mật khẩu admin.</p>
+      <input id="adminPass" type="password" placeholder="Admin password"/>
+      <button class="gold full" onclick="adminLogin()">Vào admin</button>
+      <p class="msg" id="adminMsg"></p>
+    </div>
+  </div>
+
+  <footer>© 2026 VYRO STORE • supportvyrolab@gmail.com • 0979 956 863</footer>
+  <script src="/app.js"></script>
+</body>
+</html>
