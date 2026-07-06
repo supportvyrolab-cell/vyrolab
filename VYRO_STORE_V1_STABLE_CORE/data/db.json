@@ -1,0 +1,69 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Admin VYRO",
+      "email": "admin@vyrolab.cloud",
+      "passwordHash": "",
+      "role": "admin",
+      "refCode": "ADMIN",
+      "referredBy": null,
+      "balancePending": 0,
+      "balanceApproved": 0,
+      "createdAt": "2026-07-05T00:00:00.000Z"
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "VYRO Bot MT5 Gold Pro",
+      "category": "Bot MT5",
+      "price": 2990000,
+      "commissionRate": 30,
+      "icon": "🤖",
+      "summary": "Bot giao dịch MT5 cho XAUUSD, quản trị vốn, DCA, TP/SL thông minh.",
+      "fileUrl": "/downloads/vyro-bot-mt5-demo.txt",
+      "active": true
+    },
+    {
+      "id": 2,
+      "name": "VYRO Indicator SMC PRO",
+      "category": "Indicator",
+      "price": 990000,
+      "commissionRate": 25,
+      "icon": "📈",
+      "summary": "Bộ chỉ báo SMC, BOS/CHOCH, liquidity, FVG, trend filter.",
+      "fileUrl": "/downloads/vyro-indicator-demo.txt",
+      "active": true
+    },
+    {
+      "id": 3,
+      "name": "VYRO Academy AI Trading",
+      "category": "Khóa học",
+      "price": 1490000,
+      "commissionRate": 40,
+      "icon": "🎓",
+      "summary": "Khóa học AI Trading, quản trị rủi ro, đọc dòng tiền và hệ thống bot.",
+      "fileUrl": "/downloads/vyro-academy-demo.txt",
+      "active": true
+    },
+    {
+      "id": 4,
+      "name": "Gói Tín Hiệu VYRO Signal",
+      "category": "Tín hiệu",
+      "price": 500000,
+      "commissionRate": 20,
+      "icon": "⚡",
+      "summary": "Gói tín hiệu thị trường, cảnh báo cơ hội và quản trị lệnh.",
+      "fileUrl": "/downloads/vyro-signal-demo.txt",
+      "active": true
+    }
+  ],
+  "orders": [],
+  "commissions": [],
+  "withdrawals": [],
+  "settings": {
+    "adminPass": "Abc12345@",
+    "holdDays": 15
+  }
+}
