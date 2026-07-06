@@ -1,221 +1,31 @@
 
-let token = localStorage.getItem("vyro_token") || "";
-let currentUser = null;
-let products = [];
-let tapCount = 0;
-
-function money(v){ return Number(v||0).toLocaleString("vi-VN") + "đ"; }
-function scrollToId(id){ document.getElementById(id)?.scrollIntoView({behavior:"smooth"}); }
-
-async function api(path, options={}){
-  const headers = {"Content-Type":"application/json"};
-  if(token) headers.Authorization = "Bearer " + token;
-  const res = await fetch(path, {...options, headers});
-  const data = await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
-  return data;
-}
-
-async function loadProducts(){
-  const data = await api("/api/products");
-  products = data.products;
-  renderProducts();
-}
-
-function renderProducts(){
-  const box = document.getElementById("productGrid");
-  box.innerHTML = products.map(p => `
-    <article class="product">
-      <div class="icon">${p.icon || "📦"}</div>
-      <h3>${p.name}</h3>
-      <p>${p.summary}</p>
-      <div class="price">${money(p.price)}</div>
-      <small>Hoa hồng affiliate: <b>${p.commissionRate}%</b></small>
-      <button class="gold" onclick="buy(${p.id})">Mua demo / ghi đơn</button>
-    </article>
-  `).join("");
-}
-
-function openAuth(){ document.getElementById("authModal").classList.remove("hidden"); setTab("login"); }
-function closeAuth(){ document.getElementById("authModal").classList.add("hidden"); }
-function setTab(tab){
-  document.getElementById("loginForm").classList.toggle("hidden", tab!=="login");
-  document.getElementById("registerForm").classList.toggle("hidden", tab!=="register");
-}
-function closeAdminLogin(){ document.getElementById("adminLogin").classList.add("hidden"); }
-
-async function register(){
-  try{
-    const urlRef = new URLSearchParams(location.search).get("ref") || localStorage.getItem("vyro_ref") || "";
-    const ref = document.getElementById("regRef").value || urlRef;
-    const data = await api("/api/register", {method:"POST", body:JSON.stringify({
-      name: regName.value, email: regEmail.value, password: regPass.value, ref
-    })});
-    token = data.token; localStorage.setItem("vyro_token", token); currentUser=data.user;
-    closeAuth(); await loadDashboard();
-  }catch(e){ authMsg.textContent = e.message; }
-}
-
-async function login(){
-  try{
-    const data = await api("/api/login", {method:"POST", body:JSON.stringify({
-      email: loginEmail.value, password: loginPass.value
-    })});
-    token=data.token; localStorage.setItem("vyro_token", token); currentUser=data.user;
-    closeAuth(); await loadDashboard();
-  }catch(e){ authMsg.textContent = e.message; }
-}
-
-async function buy(productId){
-  if(!token){ openAuth(); return; }
-  try{
-    await api("/api/buy", {method:"POST", body:JSON.stringify({productId})});
-    alert("Đã tạo đơn demo. Nếu tài khoản đăng ký qua ref, hoa hồng đã cộng pending cho đại lý.");
-    await loadDashboard();
-  }catch(e){ alert(e.message); }
-}
-
-async function loadDashboard(){
-  const box = document.getElementById("dashBox");
-  if(!token){
-    box.innerHTML = `<p>Chưa đăng nhập. Hãy tạo tài khoản để lấy link affiliate.</p><button class="gold" onclick="openAuth()">Đăng nhập / Đăng ký</button>`;
-    return;
-  }
-  try{
-    const data = await api("/api/dashboard");
-    currentUser = data.user;
-    const refLink = `${location.origin}/?ref=${currentUser.refCode}`;
-    box.innerHTML = `
-      <h3>Xin chào ${currentUser.name}</h3>
-      <div class="dash-grid">
-        <div class="card"><span>Mã affiliate</span><br><b>${currentUser.refCode}</b></div>
-        <div class="card"><span>Pending</span><br><b>${money(currentUser.balancePending)}</b></div>
-        <div class="card"><span>Approved</span><br><b>${money(currentUser.balanceApproved)}</b></div>
-        <div class="card"><span>Khách giới thiệu</span><br><b>${data.referredUsers.length}</b></div>
-      </div>
-      <h3>Link giới thiệu</h3>
-      <div class="copy"><input value="${refLink}" readonly id="refLink"/><button onclick="copyRef()">Copy</button></div>
-      <h3>Yêu cầu rút tiền</h3>
-      <div class="dash-grid">
-        <input id="wdAmount" placeholder="Số tiền muốn rút"/>
-        <input id="wdMethod" placeholder="Ngân hàng / USDT"/>
-        <input id="wdAccount" placeholder="Số tài khoản / ví"/>
-        <button class="gold" onclick="withdraw()">Gửi yêu cầu</button>
-      </div>
-      <h3>Hoa hồng</h3>${table(data.commissions, ["id","productName","amount","rate","status","createdAt"])}
-      <h3>Đơn hàng của tôi</h3>${table(data.orders, ["id","productName","amount","status","createdAt"])}
-      <h3>Lịch sử rút</h3>${table(data.withdrawals, ["id","amount","method","account","status","createdAt"])}
-    `;
-  }catch(e){
-    localStorage.removeItem("vyro_token"); token="";
-    box.innerHTML = `<p>Phiên đăng nhập hết hạn.</p><button onclick="openAuth()">Đăng nhập lại</button>`;
-  }
-}
-
-function table(rows, cols){
-  if(!rows || !rows.length) return "<p>Chưa có dữ liệu.</p>";
-  return `<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>
-    ${rows.map(r=>`<tr>${cols.map(c=>`<td>${String(c).toLowerCase().includes("amount")?money(r[c]):(r[c]??"")}</td>`).join("")}</tr>`).join("")}
-  </tbody></table>`;
-}
-
-function copyRef(){ navigator.clipboard.writeText(refLink.value); alert("Đã copy link affiliate"); }
-
-async function withdraw(){
-  try{
-    await api("/api/withdraw", {method:"POST", body:JSON.stringify({
-      amount: wdAmount.value, method: wdMethod.value, account: wdAccount.value
-    })});
-    alert("Đã gửi yêu cầu rút tiền.");
-    await loadDashboard();
-  }catch(e){ alert(e.message); }
-}
-
-document.getElementById("logoTap").addEventListener("click", ()=>{
-  tapCount++;
-  if(tapCount >= 6){
-    tapCount = 0;
-    document.getElementById("adminLogin").classList.remove("hidden");
-  }
-  setTimeout(()=>tapCount=0, 2500);
-});
-
-async function adminLogin(){
-  try{
-    const data = await api("/api/admin-login", {method:"POST", body:JSON.stringify({pass: adminPass.value})});
-    token=data.token; localStorage.setItem("vyro_token", token);
-    closeAdminLogin();
-    document.getElementById("adminPanel").classList.remove("hidden");
-    await loadAdmin();
-    scrollToId("adminPanel");
-  }catch(e){ adminMsg.textContent=e.message; }
-}
-
-async function loadAdmin(){
-  const data = await api("/api/admin/overview");
-  adminBox.innerHTML = `
-    <div class="admin-grid">
-      <div class="card"><span>Doanh thu</span><br><b>${money(data.stats.revenue)}</b></div>
-      <div class="card"><span>Users</span><br><b>${data.stats.userCount}</b></div>
-      <div class="card"><span>Orders</span><br><b>${data.stats.orderCount}</b></div>
-      <div class="card"><span>Rút pending</span><br><b>${money(data.stats.pendingWithdraw)}</b></div>
-    </div>
-    <h3>Thêm sản phẩm</h3>
-    <div class="admin-grid">
-      <input id="pName" placeholder="Tên sản phẩm"/>
-      <select id="pCategory"><option>Bot MT5</option><option>Indicator</option><option>Khóa học</option><option>Tín hiệu</option></select>
-      <input id="pPrice" placeholder="Giá"/>
-      <input id="pRate" placeholder="% hoa hồng"/>
-    </div>
-    <textarea id="pSummary" placeholder="Mô tả sản phẩm"></textarea>
-    <div class="admin-grid">
-      <input id="pIcon" placeholder="Icon, ví dụ 🤖"/>
-      <input id="pFile" placeholder="Link file tải"/>
-      <button class="gold" onclick="addProduct()">Thêm sản phẩm</button>
-      <button class="ok" onclick="approveCommissions()">Duyệt hoa hồng pending</button>
-    </div>
-    <h3>Sản phẩm</h3>${table(data.products, ["id","name","category","price","commissionRate","active"])}
-    <h3>Users</h3>${table(data.users, ["id","name","email","role","refCode","referredBy","balancePending","balanceApproved"])}
-    <h3>Orders</h3>${table(data.orders, ["id","userId","productName","amount","status","createdAt"])}
-    <h3>Commissions</h3>${table(data.commissions, ["id","partnerId","buyerId","productName","amount","rate","status","createdAt"])}
-    <h3>Withdrawals</h3>${renderWithdrawals(data.withdrawals)}
-  `;
-}
-
-function renderWithdrawals(rows){
-  if(!rows.length) return "<p>Chưa có yêu cầu rút.</p>";
-  return `<table><thead><tr><th>ID</th><th>User</th><th>Số tiền</th><th>Method</th><th>Account</th><th>Status</th><th>Duyệt</th></tr></thead><tbody>
-    ${rows.map(w=>`<tr><td>${w.id}</td><td>${w.userId}</td><td>${money(w.amount)}</td><td>${w.method}</td><td>${w.account}</td><td>${w.status}</td><td><button onclick="setWithdrawal(${w.id},'approved')">Approve</button> <button class="danger" onclick="setWithdrawal(${w.id},'rejected')">Reject</button></td></tr>`).join("")}
-  </tbody></table>`;
-}
-
-async function addProduct(){
-  try{
-    await api("/api/admin/product", {method:"POST", body:JSON.stringify({
-      name:pName.value, category:pCategory.value, price:pPrice.value, commissionRate:pRate.value,
-      summary:pSummary.value, icon:pIcon.value, fileUrl:pFile.value
-    })});
-    await loadProducts(); await loadAdmin();
-  }catch(e){ alert(e.message); }
-}
-
-async function approveCommissions(){
-  await api("/api/admin/approve-commissions", {method:"POST", body:"{}"});
-  alert("Đã duyệt hoa hồng pending sang approved.");
-  await loadAdmin();
-}
-
-async function setWithdrawal(id,status){
-  await api("/api/admin/withdrawal-status", {method:"POST", body:JSON.stringify({id,status})});
-  await loadAdmin();
-}
-
-function saveRef(){
-  const ref = new URLSearchParams(location.search).get("ref");
-  if(ref) localStorage.setItem("vyro_ref", ref.toUpperCase());
-  if(ref && document.getElementById("regRef")) document.getElementById("regRef").value = ref.toUpperCase();
-}
-
-saveRef();
-loadProducts();
-loadDashboard();
+let token=localStorage.getItem("vyro_token")||"", tapCount=0, products=[];
+const $=id=>document.getElementById(id);
+function money(v){return Number(v||0).toLocaleString("vi-VN")+"đ"}
+function scrollToId(id){$(id)?.scrollIntoView({behavior:"smooth"})}
+async function api(path,opt={}){const h={}; if(!(opt.body instanceof FormData)) h["Content-Type"]="application/json"; if(token) h.Authorization="Bearer "+token; const r=await fetch(path,{...opt,headers:{...h,...(opt.headers||{})}}); if(path.startsWith("/api/download/")) return r; const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||"Có lỗi xảy ra"); return d}
+function openAuth(tab="register"){authModal.classList.remove("hidden");setTab(tab)}
+function closeAuth(){authModal.classList.add("hidden")}
+function setTab(tab){loginForm.classList.toggle("hidden",tab!=="login");registerForm.classList.toggle("hidden",tab!=="register");authTitle.textContent=tab==="login"?"Vào VYRO Member Center":"Kích hoạt VYRO Member"}
+function closeOpsLogin(){opsLogin.classList.add("hidden")}
+async function loadProducts(){const d=await api("/api/products"); products=d.products; productGrid.innerHTML=products.map(p=>`<article class="product"><span class="badge">${p.badge||"VYRO"}</span><div class="icon">${p.icon||"📦"}</div><h3>${p.name}</h3><p>${p.summary||""}</p><ul class="benefits">${(p.benefits||[]).map(x=>`<li>${x}</li>`).join("")}</ul><div class="price">${p.isFree?"Miễn phí":money(p.price)}</div><small>${p.isFree?"Tạo tài khoản để tải":"Partner reward: "+p.commissionRate+"%"}</small><button class="gold" onclick="orderProduct(${p.id})">${p.isFree?"⬇️ Nhận miễn phí":"🔥 Đặt mua ngay"}</button></article>`).join("")}
+async function register(){try{const ref=regRef.value||new URLSearchParams(location.search).get("ref")||localStorage.getItem("vyro_ref")||"";const d=await api("/api/register",{method:"POST",body:JSON.stringify({name:regName.value,email:regEmail.value,password:regPass.value,ref})});token=d.token;localStorage.setItem("vyro_token",token);closeAuth();await loadDashboard();scrollToId("member")}catch(e){authMsg.textContent=e.message}}
+async function login(){try{const d=await api("/api/login",{method:"POST",body:JSON.stringify({email:loginEmail.value,password:loginPass.value})});token=d.token;localStorage.setItem("vyro_token",token);closeAuth();await loadDashboard();scrollToId("member")}catch(e){authMsg.textContent=e.message}}
+async function orderProduct(id){if(!token){openAuth("register");return}try{const d=await api("/api/order",{method:"POST",body:JSON.stringify({productId:id})});alert(d.order.status==="paid"?"Đã mở tải sản phẩm trong Member Center.":"Đơn đã tạo. Sau khi xác nhận thanh toán, hệ thống sẽ mở tải.");await loadDashboard();scrollToId("member")}catch(e){alert(e.message)}}
+async function loadDashboard(){if(!token){dashBox.innerHTML=`<div class="glass-card"><b>Kích hoạt Member Center</b><p class="muted">Tạo tài khoản để tải sản phẩm miễn phí, đặt mua gói trả phí và nhận link đối tác.</p><button class="gold" onclick="openAuth('register')">🚀 Kích hoạt ngay</button></div>`;return}try{const d=await api("/api/dashboard"),u=d.user,ref=`${location.origin}/?ref=${u.refCode}`;dashBox.innerHTML=`<h3>Chào mừng ${u.name}</h3><div class="cards"><div class="card"><span>Partner Code</span><br><b>${u.refCode}</b></div><div class="card"><span>Pending</span><br><b>${money(u.balancePending)}</b></div><div class="card"><span>Available</span><br><b>${money(u.balanceApproved)}</b></div><div class="card"><span>Network</span><br><b>${d.referredUsers.length}</b></div></div><h3>Link đối tác</h3><div class="copy"><input id="refLink" value="${ref}" readonly><button class="gold" onclick="copyRef()">Copy</button></div><h3>My Products</h3>${ordersTable(d.orders)}<h3>VYRO Wallet</h3><div class="admin-grid"><input id="wdAmount" placeholder="Số tiền"><input id="wdMethod" placeholder="Ngân hàng / USDT"><input id="wdAccount" placeholder="Thông tin nhận"><button class="gold" onclick="withdraw()">Gửi yêu cầu</button></div><h3>Partner Rewards</h3>${table(d.commissions,["id","productName","amount","rate","status","createdAt"])}<h3>Wallet History</h3>${table(d.withdrawals,["id","amount","method","account","status","createdAt"])}`}catch(e){localStorage.removeItem("vyro_token");token="";dashBox.innerHTML=`<p class="muted">Phiên đã hết hạn.</p><button class="gold" onclick="openAuth('login')">Vào lại Member Center</button>`}}
+function ordersTable(rows){if(!rows.length)return"<p class='muted'>Chưa có sản phẩm.</p>";return`<table><thead><tr><th>ID</th><th>Sản phẩm</th><th>Giá</th><th>Trạng thái</th><th>Tải</th></tr></thead><tbody>${rows.map(o=>`<tr><td>${o.id}</td><td>${o.productName}</td><td>${money(o.amount)}</td><td>${o.status}</td><td>${o.downloadUnlocked?`<button class="gold" onclick="downloadProduct(${o.productId})">Download</button>`:"Đang khóa"}</td></tr>`).join("")}</tbody></table>`}
+function table(rows,cols){if(!rows||!rows.length)return"<p class='muted'>Chưa có dữ liệu.</p>";return`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${String(c).toLowerCase().includes("amount")?money(r[c]):(r[c]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
+function copyRef(){navigator.clipboard.writeText(refLink.value);alert("Đã copy link đối tác")}
+async function downloadProduct(id){const r=await api("/api/download/"+id); if(!r.ok){alert(await r.text());return} const blob=await r.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="vyro-product"; a.click(); URL.revokeObjectURL(a.href)}
+async function withdraw(){try{await api("/api/withdraw",{method:"POST",body:JSON.stringify({amount:wdAmount.value,method:wdMethod.value,account:wdAccount.value})});alert("Đã gửi yêu cầu.");await loadDashboard()}catch(e){alert(e.message)}}
+logoTap.addEventListener("click",()=>{tapCount++; if(tapCount>=6){tapCount=0;opsLogin.classList.remove("hidden")} setTimeout(()=>tapCount=0,2200)})
+async function opsLogin(){try{const d=await api("/api/admin-login",{method:"POST",body:JSON.stringify({pass:opsPass.value})});token=d.token;localStorage.setItem("vyro_token",token);closeOpsLogin();opsPanel.classList.remove("hidden");await loadOps();scrollToId("opsPanel")}catch(e){opsMsg.textContent=e.message}}
+async function loadOps(){const d=await api("/api/admin/overview");opsBox.innerHTML=`<div class="cards"><div class="card"><span>Revenue</span><br><b>${money(d.stats.revenue)}</b></div><div class="card"><span>Pending Orders</span><br><b>${d.stats.pending}</b></div><div class="card"><span>Members</span><br><b>${d.stats.userCount}</b></div><div class="card"><span>Orders</span><br><b>${d.stats.orderCount}</b></div></div><h3>Upload Product</h3><form id="uploadForm"><div class="admin-grid"><input name="name" placeholder="Product name"><select name="category"><option>Bot MT5</option><option>Indicator</option><option>Academy</option><option>AI Agent</option></select><input name="price" placeholder="Price, 0 = free"><input name="commissionRate" placeholder="Reward %"></div><div class="admin-grid"><input name="icon" placeholder="Icon"><input name="badge" placeholder="Badge"><select name="isFree"><option value="false">Paid</option><option value="true">Free</option></select><input name="file" type="file"></div><textarea name="summary" placeholder="Sales description"></textarea><textarea name="benefits" placeholder="Mỗi lợi ích một dòng"></textarea><button class="gold">Publish Product</button></form><h3>Orders</h3>${opsOrders(d.orders)}<button class="ok" onclick="approveCommissions()">Approve pending rewards</button><h3>Products</h3>${table(d.products,["id","name","category","price","commissionRate","isFree","downloadName","active"])}<h3>Members</h3>${table(d.users,["id","name","email","role","refCode","referredBy","balancePending","balanceApproved"])}<h3>Rewards</h3>${table(d.commissions,["id","partnerId","buyerId","productName","amount","rate","status","createdAt"])}<h3>Wallet Requests</h3>${opsWithdraw(d.withdrawals)}`;uploadForm.onsubmit=uploadProduct}
+function opsOrders(rows){if(!rows.length)return"<p class='muted'>Chưa có đơn.</p>";return`<table><thead><tr><th>ID</th><th>User</th><th>Product</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(o=>`<tr><td>${o.id}</td><td>${o.userId}</td><td>${o.productName}</td><td>${money(o.amount)}</td><td>${o.status}</td><td><button onclick="setOrder(${o.id},'paid')">Mark Paid</button> <button class="danger" onclick="setOrder(${o.id},'rejected')">Reject</button></td></tr>`).join("")}</tbody></table>`}
+function opsWithdraw(rows){if(!rows.length)return"<p class='muted'>Chưa có yêu cầu.</p>";return`<table><thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(w=>`<tr><td>${w.id}</td><td>${w.userId}</td><td>${money(w.amount)}</td><td>${w.method}</td><td>${w.account}</td><td>${w.status}</td><td><button onclick="setWithdrawal(${w.id},'approved')">Approve</button> <button class="danger" onclick="setWithdrawal(${w.id},'rejected')">Reject</button></td></tr>`).join("")}</tbody></table>`}
+async function uploadProduct(e){e.preventDefault();try{await api("/api/admin/upload-product",{method:"POST",body:new FormData(uploadForm)});alert("Đã publish sản phẩm.");await loadProducts();await loadOps()}catch(err){alert(err.message)}}
+async function setOrder(id,status){await api("/api/admin/order-status",{method:"POST",body:JSON.stringify({id,status})});await loadOps()}
+async function approveCommissions(){await api("/api/admin/approve-commissions",{method:"POST",body:"{}"});alert("Đã duyệt rewards.");await loadOps()}
+async function setWithdrawal(id,status){await api("/api/admin/withdrawal-status",{method:"POST",body:JSON.stringify({id,status})});await loadOps()}
+const ref=new URLSearchParams(location.search).get("ref"); if(ref){localStorage.setItem("vyro_ref",ref.toUpperCase()); if(window.regRef) regRef.value=ref.toUpperCase()}
+loadProducts();loadDashboard();
