@@ -1,0 +1,2 @@
+VYRO Indicator Demo
+Replace this file with real product.

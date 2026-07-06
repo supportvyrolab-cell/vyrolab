@@ -1,7 +1,7 @@
 {
-  "name": "vyro-store-v1-stable-core",
-  "version": "1.0.0",
-  "description": "VYRO STORE V1 Stable Core - Account + Affiliate + Admin hidden",
+  "name": "vyro-store-v3-digital-download-core",
+  "version": "3.0.0",
+  "description": "VYRO STORE V3 - Digital product upload, free/paid download, affiliate, wallet, hidden operation center",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
