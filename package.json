@@ -1,8 +1,8 @@
 {
-  "name": "vyro-store-v4-production-manual-payment",
-  "version": "4.0.0",
+  "name": "vyro-store-v5-blockchain-payment",
+  "version": "5.0.0",
   "private": true,
-  "description": "VYRO Store production core with PostgreSQL, JWT, secure uploads, affiliate wallet and manual payment approval",
+  "description": "VYRO Store with USDT BEP20 payment confirmation, BscScan TXID validation and product upload",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

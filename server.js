@@ -59,7 +59,8 @@ async function auth(req, res, next) {
 }
 function adminOnly(req, res, next) { if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Restricted area.' }); next(); }
 
-const allowedExt = new Set(['.zip','.pdf','.ex5','.mq5','.txt','.mp4','.jpg','.jpeg','.png']);
+const allowedProductExt = new Set(['.zip','.rar','.7z','.pdf','.ex5','.mq5','.txt','.mp4','.doc','.docx']);
+const allowedImageExt = new Set(['.jpg','.jpeg','.png','.webp']);
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_, __, cb) => cb(null, STORAGE_DIR),
@@ -68,10 +69,15 @@ const upload = multer({
       cb(null, `${Date.now()}_${crypto.randomBytes(8).toString('hex')}${ext}`);
     }
   }),
-  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024, files: 2 },
   fileFilter: (_, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!allowedExt.has(ext)) return cb(new Error('Định dạng file không được phép.'));
+    if (file.fieldname === 'productFile' && !allowedProductExt.has(ext)) {
+      return cb(new Error('File sản phẩm không đúng định dạng.'));
+    }
+    if ((file.fieldname === 'imageFile' || file.fieldname === 'paymentProof') && !allowedImageExt.has(ext)) {
+      return cb(new Error('Ảnh chỉ nhận JPG, PNG hoặc WEBP.'));
+    }
     cb(null, true);
   }
 });
@@ -104,6 +110,8 @@ async function migrate() {
       is_free BOOLEAN NOT NULL DEFAULT FALSE,
       download_file TEXT,
       download_name TEXT,
+      image_url TEXT,
+      image_file TEXT,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -115,6 +123,13 @@ async function migrate() {
       amount BIGINT NOT NULL DEFAULT 0,
       status VARCHAR(30) NOT NULL,
       payment_note TEXT,
+      customer_name TEXT,
+      customer_phone TEXT,
+      customer_email TEXT,
+      transaction_id TEXT,
+      proof_file TEXT,
+      payment_network TEXT DEFAULT 'BSC',
+      payment_token TEXT DEFAULT 'USDT',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ
     );
@@ -141,6 +156,16 @@ async function migrate() {
       updated_at TIMESTAMPTZ
     );
   `);
+  await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT`);
+  await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_file TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS transaction_id TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS proof_file TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_network TEXT DEFAULT 'BSC'`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_token TEXT DEFAULT 'USDT'`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tx_unique ON orders(transaction_id) WHERE transaction_id IS NOT NULL AND transaction_id <> ''`);
   const adminEmail = normalizeEmail(process.env.ADMIN_EMAIL || 'admin@vyrolab.cloud');
   const adminPassword = String(process.env.ADMIN_PASSWORD || '');
   if (adminPassword.length < 10) throw new Error('ADMIN_PASSWORD must be at least 10 characters');
@@ -156,7 +181,7 @@ app.get('/api/health', async (_, res) => {
 });
 
 app.get('/api/products', async (_, res) => {
-  const { rows } = await pool.query(`SELECT id,name,category,price,commission_rate AS "commissionRate",icon,badge,summary,benefits,is_free AS "isFree",active,created_at AS "createdAt" FROM products WHERE active=true ORDER BY id DESC`);
+  const { rows } = await pool.query(`SELECT id,name,category,price,commission_rate AS "commissionRate",icon,badge,summary,benefits,is_free AS "isFree",image_url AS "imageUrl",(image_file IS NOT NULL) AS "hasImage",active,created_at AS "createdAt" FROM products WHERE active=true ORDER BY id DESC`);
   res.json({ products: rows });
 });
 
@@ -213,6 +238,51 @@ app.post('/api/orders', auth, async (req, res) => {
   } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
 });
 
+app.get('/api/product-image/:productId', async (req, res) => {
+  const { rows } = await pool.query('SELECT image_file FROM products WHERE id=$1 AND active=true', [Number(req.params.productId)]);
+  const name = rows[0]?.image_file;
+  if (!name) return res.status(404).end();
+  const filePath = path.resolve(STORAGE_DIR, name);
+  if (!filePath.startsWith(STORAGE_DIR) || !fs.existsSync(filePath)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.sendFile(filePath);
+});
+
+app.post('/api/orders/:id/payment-proof', auth, upload.single('paymentProof'), async (req,res)=>{
+  const orderId = Number(req.params.id);
+  const { rows } = await pool.query('SELECT * FROM orders WHERE id=$1 AND user_id=$2',[orderId,req.user.id]);
+  const order = rows[0];
+  if(!order) return res.status(404).json({error:'Không tìm thấy đơn hàng.'});
+  if(order.status==='paid') return res.status(400).json({error:'Đơn đã thanh toán.'});
+
+  const txid = cleanText(req.body.transactionId,180);
+  if(!/^0x[a-fA-F0-9]{64}$/.test(txid)) return res.status(400).json({error:'TXID blockchain không hợp lệ. TXID phải bắt đầu bằng 0x và đủ 66 ký tự.'});
+  const duplicate = await pool.query('SELECT id FROM orders WHERE transaction_id=$1 AND id<>$2',[txid,orderId]);
+  if(duplicate.rows[0]) return res.status(409).json({error:'TXID này đã được sử dụng cho đơn khác.'});
+
+  const customerName=cleanText(req.body.customerName,150);
+  const customerPhone=cleanText(req.body.customerPhone,60);
+  const customerEmail=normalizeEmail(req.body.customerEmail);
+  if(customerName.length<2 || customerPhone.length<6 || !customerEmail.includes('@')) {
+    return res.status(400).json({error:'Vui lòng nhập đủ họ tên, SĐT/Zalo và email.'});
+  }
+
+  await pool.query(`UPDATE orders SET customer_name=$1,customer_phone=$2,customer_email=$3,
+    transaction_id=$4,proof_file=$5,payment_network='BSC',payment_token='USDT',status='submitted',updated_at=NOW()
+    WHERE id=$6 AND user_id=$7`,
+    [customerName,customerPhone,customerEmail,txid,req.file?.filename||null,orderId,req.user.id]);
+  res.json({ok:true, explorerUrl:`${process.env.PAYMENT_EXPLORER_URL||'https://bscscan.com/tx/'}${txid}`});
+});
+
+app.get('/api/admin/payment-proof/:orderId',auth,adminOnly,async(req,res)=>{
+  const {rows}=await pool.query('SELECT proof_file FROM orders WHERE id=$1',[Number(req.params.orderId)]);
+  const name=rows[0]?.proof_file;
+  if(!name)return res.status(404).end();
+  const filePath=path.resolve(STORAGE_DIR,name);
+  if(!filePath.startsWith(STORAGE_DIR)||!fs.existsSync(filePath))return res.status(404).end();
+  res.sendFile(filePath);
+});
+
 app.get('/api/download/:productId', auth, async (req, res) => {
   const { rows } = await pool.query(`SELECT p.* FROM products p WHERE p.id=$1 AND p.active=true AND (p.is_free=true OR EXISTS(SELECT 1 FROM orders o WHERE o.user_id=$2 AND o.product_id=p.id AND o.status='paid'))`, [Number(req.params.productId), req.user.id]);
   const p = rows[0]; if (!p) return res.status(403).send('Download is locked.');
@@ -240,20 +310,40 @@ app.post('/api/withdrawals', auth, async (req, res) => {
 app.get('/api/admin/overview', auth, adminOnly, async (_, res) => {
   const [users, products, orders, commissions, withdrawals, stats] = await Promise.all([
     pool.query(`SELECT id,name,email,role,ref_code AS "refCode",referred_by AS "referredBy",balance_pending AS "balancePending",balance_approved AS "balanceApproved",active,created_at AS "createdAt" FROM users ORDER BY id DESC`),
-    pool.query(`SELECT id,name,category,price,commission_rate AS "commissionRate",icon,badge,summary,benefits,is_free AS "isFree",download_name AS "downloadName",active,created_at AS "createdAt" FROM products ORDER BY id DESC`),
+    pool.query(`SELECT id,name,category,price,commission_rate AS "commissionRate",icon,badge,summary,benefits,is_free AS "isFree",download_name AS "downloadName",image_url AS "imageUrl",(image_file IS NOT NULL) AS "hasImage",active,created_at AS "createdAt" FROM products ORDER BY id DESC`),
     pool.query('SELECT * FROM orders ORDER BY id DESC'), pool.query('SELECT * FROM commissions ORDER BY id DESC'), pool.query('SELECT * FROM withdrawals ORDER BY id DESC'),
     pool.query(`SELECT COALESCE(SUM(amount) FILTER(WHERE status='paid'),0) AS revenue, COUNT(*) FILTER(WHERE status='pending_payment') AS pending, COUNT(*) AS orders FROM orders`)
   ]);
   res.json({ users:users.rows,products:products.rows,orders:orders.rows,commissions:commissions.rows,withdrawals:withdrawals.rows,stats:{revenue:Number(stats.rows[0].revenue),pending:Number(stats.rows[0].pending),orderCount:Number(stats.rows[0].orders),userCount:users.rowCount} });
 });
 
-app.post('/api/admin/products', auth, adminOnly, upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Chưa chọn file sản phẩm.' });
-  const price = Math.max(0, Math.floor(Number(req.body.price || 0)));
-  const rate = Math.min(100, Math.max(0, Number(req.body.commissionRate || 0)));
-  const benefits = cleanText(req.body.benefits, 2000).split('\n').map(x=>x.trim()).filter(Boolean).slice(0,10);
-  const { rows } = await pool.query(`INSERT INTO products(name,category,price,commission_rate,icon,badge,summary,benefits,is_free,download_file,download_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [cleanText(req.body.name,180),cleanText(req.body.category,80),price,rate,cleanText(req.body.icon,20)||'📦',cleanText(req.body.badge,80)||'VYRO',cleanText(req.body.summary,3000),JSON.stringify(benefits),String(req.body.isFree)==='true'||price===0,req.file.filename,cleanText(req.file.originalname,180)]);
-  res.json({ ok:true, product:rows[0] });
+app.post('/api/admin/products', auth, adminOnly, upload.fields([
+  { name:'productFile', maxCount:1 },
+  { name:'imageFile', maxCount:1 }
+]), async (req, res) => {
+  const productFile = req.files?.productFile?.[0] || null;
+  const imageFile = req.files?.imageFile?.[0] || null;
+  const name = cleanText(req.body.name, 180);
+  if (name.length < 2) return res.status(400).json({error:'Nhập tên sản phẩm.'});
+  const price = Math.max(0, Number(req.body.price || 0));
+  const isFree = String(req.body.isFree) === 'true' || price === 0;
+  const productType = cleanText(req.body.productType, 30) || 'download';
+  if (productType === 'download' && !productFile) {
+    return res.status(400).json({error:'Sản phẩm tải về cần có file sản phẩm.'});
+  }
+  const benefits = cleanText(req.body.benefits, 2000).split('\n').map(x=>x.trim()).filter(Boolean).slice(0,12);
+  const { rows } = await pool.query(`
+    INSERT INTO products(name,category,price,commission_rate,icon,badge,summary,benefits,is_free,download_file,download_name,image_url,image_file)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *
+  `,[
+    name, cleanText(req.body.category,80)||'Digital Product', price,
+    Math.min(100,Math.max(0,Number(req.body.commissionRate||0))),
+    cleanText(req.body.icon,20)||'📦', cleanText(req.body.badge,80)||'VYRO',
+    cleanText(req.body.summary,3000), JSON.stringify(benefits), isFree,
+    productFile?.filename||null, productFile?cleanText(productFile.originalname,180):null,
+    cleanText(req.body.imageUrl,1000)||null, imageFile?.filename||null
+  ]);
+  res.json({ok:true,product:rows[0]});
 });
 
 app.post('/api/admin/orders/:id/status', auth, adminOnly, async (req, res) => {

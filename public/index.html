@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>VYRO AI Store V3</title><link rel="stylesheet" href="/styles.css"/></head><body>
+<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>VYRO Store V5 Blockchain Payment</title><link rel="stylesheet" href="/styles.css"/></head><body>
 <header class="top"><div class="brand" id="logoTap"><span>V</span><div><b>VYRO AI STORE</b><small>Digital Trading Ecosystem</small></div></div><nav><a href="#products">Sản phẩm</a><a href="#partner">Đối tác</a><a href="#member">Member Center</a><button class="gold" onclick="openAuth('register')">Kích hoạt miễn phí</button></nav></header>
 <main>
-<section class="hero"><div><p class="eyebrow">V3 • DIGITAL DOWNLOAD • PARTNER WALLET</p><h1>Bán bot MT5, chỉ báo và sản phẩm số trong một hệ thống duy nhất</h1><p class="lead">Khách tạo tài khoản, nhận sản phẩm miễn phí hoặc đặt mua gói trả phí. Đối tác có link riêng, hệ thống ghi nhận hoa hồng và ví rút tiền.</p><div class="actions"><button class="gold" onclick="openAuth('register')">🚀 Kích hoạt tài khoản</button><button class="glass" onclick="scrollToId('products')">📦 Xem kho sản phẩm</button></div><div class="trust"><span>✓ Free download sau khi tạo tài khoản</span><span>✓ Paid download mở sau khi duyệt đơn</span><span>✓ Affiliate reward tracking</span></div></div><div class="ai"><div class="sphere"><i>AI</i><b>Bot MT5</b><em>Indicator</em><strong>Wallet</strong></div><div class="ai-card"><b>VYRO Commerce Engine</b><p>Upload sản phẩm, tạo gói miễn phí/trả phí, mở tải theo trạng thái đơn hàng.</p></div></div></section>
+<section class="hero"><div><p class="eyebrow">V5 • BLOCKCHAIN PAYMENT • PRODUCT MARKETPLACE</p><h1>Bán bot MT5, chỉ báo và sản phẩm số trong một hệ thống duy nhất</h1><p class="lead">Khách tạo tài khoản, nhận sản phẩm miễn phí hoặc đặt mua gói trả phí. Đối tác có link riêng, hệ thống ghi nhận hoa hồng và ví rút tiền.</p><div class="actions"><button class="gold" onclick="openAuth('register')">🚀 Kích hoạt tài khoản</button><button class="glass" onclick="scrollToId('products')">📦 Xem kho sản phẩm</button></div><div class="trust"><span>✓ Free download sau khi tạo tài khoản</span><span>✓ Paid download mở sau khi duyệt đơn</span><span>✓ Affiliate reward tracking</span></div></div><div class="ai"><div class="sphere"><i>AI</i><b>Bot MT5</b><em>Indicator</em><strong>Wallet</strong></div><div class="ai-card"><b>VYRO Commerce Engine</b><p>Upload sản phẩm, tạo gói miễn phí/trả phí, mở tải theo trạng thái đơn hàng.</p></div></div></section>
 <section class="metrics"><div><b>FREE</b><span>Tải miễn phí</span></div><div><b>PAID</b><span>Đơn chờ duyệt</span></div><div><b>REWARD</b><span>Hoa hồng đối tác</span></div><div><b>WALLET</b><span>Yêu cầu thanh toán</span></div></section>
 <section class="section" id="products"><div class="head"><p class="eyebrow">PRODUCT VAULT</p><h2>Kho sản phẩm VYRO</h2><p>Bot, indicator, khóa học, tài liệu và file số có thể tải sau khi đủ điều kiện.</p></div><div class="grid" id="productGrid"></div></section>
 <section class="section split" id="partner"><div><p class="eyebrow">VYRO PARTNER</p><h2>Cho anh em tự giới thiệu và theo dõi thu nhập</h2><p>Mỗi thành viên có mã đối tác riêng. Khi khách đăng ký qua link và phát sinh đơn được duyệt, hệ thống tự ghi nhận reward.</p></div><div class="glass-card"><b>Partner Flow</b><span>Share link → Member activates → Product order → Reward pending → Approved → Wallet request</span></div></section>
@@ -10,4 +10,23 @@
 </main>
 <div class="modal hidden" id="authModal"><div class="modal-card"><button class="close" onclick="closeAuth()">×</button><h2 id="authTitle">Kích hoạt VYRO Member</h2><p class="muted">Tạo tài khoản để nhận file miễn phí, đặt mua sản phẩm và lấy link đối tác.</p><div class="switch"><button onclick="setTab('register')">Tạo tài khoản</button><button onclick="setTab('login')">Member Center</button></div><div id="registerForm"><input id="regName" placeholder="Họ tên"/><input id="regEmail" placeholder="Email"/><input id="regPass" type="password" placeholder="Mật khẩu tối thiểu 6 ký tự"/><input id="regRef" placeholder="Mã đối tác nếu có"/><button class="gold full" onclick="register()">🚀 Kích hoạt ngay</button></div><div id="loginForm" class="hidden"><input id="loginEmail" placeholder="Email"/><input id="loginPass" type="password" placeholder="Mật khẩu"/><button class="gold full" onclick="login()">Vào Member Center</button></div><p class="msg" id="authMsg"></p></div></div>
 <div class="modal hidden" id="opsLogin"><div class="modal-card"><button class="close" onclick="closeOpsLogin()">×</button><h2>Administrator Login</h2><input id="opsPass" type="password" placeholder="Access password"/><button class="gold full" onclick="openOperationCenter()">Continue</button><p class="msg" id="opsMsg"></p></div></div>
-<footer><b>VYRO AI TECHNOLOGY</b><span>Digital Trading Ecosystem • supportvyrolab@gmail.com • 0979 956 863</span></footer><script src="/app.js"></script></body></html>
+<footer><b>VYRO AI TECHNOLOGY</b><span>Digital Trading Ecosystem • supportvyrolab@gmail.com • 0979 956 863</span></footer><script src="/app.js"></script>
+<div class="modal hidden" id="paymentModal"><div class="blockchain-payment">
+<button class="close" onclick="closePayment()">×</button>
+<div class="pay-left"><p class="eyebrow">BLOCKCHAIN PAYMENT</p><h2 id="payPlan">Gói đã chọn</h2>
+<div class="network"><b id="payNetwork">USDT • BNB Smart Chain</b><span>Chain ID 56 • BEP20</span></div>
+<img id="payQr" class="pay-qr" src="/assets/usdt-bep20-qr.jpeg" alt="QR USDT BEP20">
+<div class="wallet-box"><small>Ví nhận thanh toán</small><code id="payWallet"></code><button class="gold full" onclick="copyWallet()">Copy địa chỉ ví</button></div>
+<div class="pay-summary"><span>Số tiền</span><b id="payAmount"></b><span>Mã đơn</span><b id="payOrderCode"></b></div>
+<p class="danger-note" id="payWarning"></p></div>
+<div class="pay-right"><h2>Gửi thông tin kích hoạt</h2><form onsubmit="submitBlockchainPayment(event)">
+<input name="customerName" required placeholder="Họ tên">
+<input name="customerPhone" required placeholder="SĐT/Zalo">
+<input name="customerEmail" type="email" required placeholder="Email">
+<input id="payProduct" readonly>
+<input name="transactionId" required pattern="0x[a-fA-F0-9]{64}" placeholder="TXID blockchain 0x...">
+<label>Ảnh biên nhận<input name="paymentProof" type="file" accept=".jpg,.jpeg,.png,.webp"></label>
+<button id="paySubmit" class="gold full" type="submit">Gửi xác nhận thanh toán</button>
+<p class="muted">Admin đối chiếu TXID trên BscScan trước khi duyệt. Hệ thống không tự nhận giao dịch giả.</p>
+</form></div></div></div>
+</body></html>
